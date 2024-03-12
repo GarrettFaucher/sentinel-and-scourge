@@ -1,0 +1,89 @@
+on: [push, pull_request, workflow_dispatch]
+
+name: Build
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    name: Generate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Use Node.js 17
+        uses: actions/setup-node@v2
+        with:
+          node-version: 17.x
+      - name: Install dependencies
+        run: npm install
+      - name: Generate unrouted PCBs
+        run: npm run gen
+      # Steps for Sentinel board
+      - name: Export DSN for sentinel PCB
+        uses: ./.github/actions/export-dsn
+        with:
+          pcb_file: output/pcbs/sentinel.kicad_pcb
+          dsn_file: output/pcbs/sentinel.dsn
+      - name: Autoroute sentinel PCB
+        uses: ./.github/actions/autoroute
+        with:
+          dsn_file: output/pcbs/sentinel.dsn
+          ses_file: output/pcbs/sentinel.ses
+      - name: Import SES into sentinel PCB
+        uses: ./.github/actions/import-ses
+        with:
+          pcb_input_file: output/pcbs/sentinel.kicad_pcb
+          pcb_output_file: output/pcbs/sentinel_routed.kicad_pcb
+          ses_file: output/pcbs/sentinel.ses
+      - name: Export Gerbers for sentinel PCB
+        uses: ./.github/actions/export-gerbers
+        with:
+          pcb_file: output/pcbs/sentinel.kicad_pcb
+          gerbers_dir: output/gerbers/sentinel
+      # Steps for Scourge board
+      - name: Export DSN for scourge PCB
+        uses: ./.github/actions/export-dsn
+        with:
+          pcb_file: output/pcbs/scourge.kicad_pcb
+          dsn_file: output/pcbs/scourge.dsn
+      - name: Autoroute scourge PCB
+        uses: ./.github/actions/autoroute
+        with:
+          dsn_file: output/pcbs/scourge.dsn
+          ses_file: output/pcbs/scourge.ses
+      - name: Import SES into scourge PCB
+        uses: ./.github/actions/import-ses
+        with:
+          pcb_input_file: output/pcbs/scourge.kicad_pcb
+          pcb_output_file: output/pcbs/scourge_routed.kicad_pcb
+          ses_file: output/pcbs/scourge.ses
+      - name: Export Gerbers for scourge PCB
+        uses: ./.github/actions/export-gerbers
+        with:
+          pcb_file: output/pcbs/scourge.kicad_pcb
+          gerbers_dir: output/gerbers/scourge
+      # Plate references for Sentinel
+      - name: Export Gerbers for sentinel top plate
+        uses: ./.github/actions/export-gerbers
+        with:
+          pcb_file: output/pcbs/sentinel_top_plate.kicad_pcb
+          gerbers_dir: output/gerbers/sentinel_top_plate
+      - name: Export Gerbers for sentinel bottom plate
+        uses: ./.github/actions/export-gerbers
+        with:
+          pcb_file: output/pcbs/sentinel_bottom_plate.kicad_pcb
+          gerbers_dir: output/gerbers/sentinel_bottom_plate
+      # Plate references for Scourge
+      - name: Export Gerbers for scourge top plate
+        uses: ./.github/actions/export-gerbers
+        with:
+          pcb_file: output/pcbs/scourge_top_plate.kicad_pcb
+          gerbers_dir: output/gerbers/scourge_top_plate
+      - name: Export Gerbers for scourge bottom plate
+        uses: ./.github/actions/export-gerbers
+        with:
+          pcb_file: output/pcbs/scourge_bottom_plate.kicad_pcb
+          gerbers_dir: output/gerbers/scourge_bottom_plate
+      - name: Persist output
+        uses: actions/upload-artifact@v2
+        with:
+          name: samoklava-routed-pcbs-and-gerbers
+          path: output
